@@ -2,6 +2,7 @@
 
 ## Description
 nitroTools is an open-source command-line tool for test
+
 NOTE: I do not have any experience with rust, this project is made to learn rust
 
 ## Installation
