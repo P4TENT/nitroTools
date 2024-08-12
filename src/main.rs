@@ -8,6 +8,7 @@ use std::io::Read;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
+use std::process::Command;
 
 pub mod colors;
 
@@ -26,7 +27,7 @@ fn info(text: &str, settings: &mut Vec<String>) {
         );
     } else if settings[1] == "$ABSTRACT!" {
         print!(
-            "{} ≣≣≣[{} {}{} ]≣≣≣{} {}{}{}",
+            "{}    [{} {}{} ]{} {}{}{}",
             colors::GREEN,
             colors::CYAN,
             settings[0],
@@ -73,7 +74,7 @@ fn error(text: &str, settings: &mut Vec<String>) {
         );
     } else if settings[1] == "$ABSTRACT!" {
         print!(
-            "{} ≣≣≣[{} {}{} ]≣≣≣{} {}{}{}",
+            "{}    [{} {}{} ]{} {}{}{}",
             colors::GREEN,
             colors::CYAN,
             settings[0],
@@ -91,9 +92,47 @@ fn format_system_time(system_time: SystemTime) -> String {
     datetime.format("%d-%m-%Y %H:%M").to_string()
 }
 
+fn _colorize_block_characters(text: &str) -> String {
+    // Define the ANSI escape codes for light gray color
+    const LIGHT_GRAY: &str = "\x1b[37m";
+
+    // Replace every '░' with the colored version
+    text.replace("░", &format!("{}░{}", colors::BLUE, colors::RESET))
+    .replace("█", &format!("{}█{}", LIGHT_GRAY, colors::RESET))
+    .replace("╚", &format!("{}╚{}", colors::CYAN, colors::RESET))
+    .replace("═", &format!("{}═{}", colors::CYAN, colors::RESET))
+    .replace("║", &format!("{}║{}", colors::CYAN, colors::RESET))
+    .replace("╝", &format!("{}╝{}", colors::CYAN, colors::RESET))
+    .replace("╔", &format!("{}╔{}", colors::CYAN, colors::RESET))
+    .replace("╗", &format!("{}╗{}", colors::CYAN, colors::RESET))
+}
+
+fn hello_nitro() {
+    let string_text = "
+  ███╗░░██╗██╗████████╗██████╗░░█████╗░░░░░░░████████╗░█████╗░░█████╗░██╗░░░░░░██████╗
+  ████╗░██║██║╚══██╔══╝██╔══██╗██╔══██╗░░░░░░╚══██╔══╝██╔══██╗██╔══██╗██║░░░░░██╔════╝
+  ██╔██╗██║██║░░░██║░░░██████╔╝██║░░██║█████╗░░░██║░░░██║░░██║██║░░██║██║░░░░░╚█████╗░
+  ██║╚████║██║░░░██║░░░██╔══██╗██║░░██║╚════╝░░░██║░░░██║░░██║██║░░██║██║░░░░░░╚═══██╗
+  ██║░╚███║██║░░░██║░░░██║░░██║╚█████╔╝░░░░░░░░░██║░░░╚█████╔╝╚█████╔╝███████╗██████╔╝
+  ╚═╝░░╚══╝╚═╝░░░╚═╝░░░╚═╝░░╚═╝░╚════╝░░░░░░░░░░╚═╝░░░░╚════╝░░╚════╝░╚══════╝╚═════╝░\n";
+
+    let colored_string_text = _colorize_block_characters(string_text);
+
+    print!("{}\n", colored_string_text);
+}
+
 fn main() -> io::Result<()> {
+    hello_nitro();
+    let exe_path = env::current_exe().expect("Failed to get executable path");
+
+    // Get the directory containing the executable
+    let exe_dir = exe_path.parent().expect("Failed to get parent directory");
+
+    let settings_path = exe_dir.join("settings.ninfo");
+    let cloned_settings_path = settings_path.clone();
+
     let mut line_number_to_modify;
-    let mut file = fs::File::open("src/settings.ninfo")?;
+    let mut file = fs::File::open(&cloned_settings_path)?;
     let mut contents = String::new();
     file.read_to_string(&mut contents)?;
 
@@ -116,7 +155,7 @@ fn main() -> io::Result<()> {
             );
         } else if _settings[1] == "$ABSTRACT!" {
             print!(
-                "{}↱{}≣≣≣[{} {}{} ]≣≣≣ \n{}↳ {}",
+                "{}╔═══{}[{} {}{} ] \n{}╚═ {}",
                 colors::RED,
                 colors::GREEN,
                 colors::CYAN,
@@ -138,11 +177,13 @@ fn main() -> io::Result<()> {
                 running = false;
                 info("Exiting", &mut _settings);
             }
+
             ["echo", ..] => {
                 let echo_sentence = user_input.strip_prefix("echo ");
                 let casted_echo_sentence = echo_sentence.unwrap_or(&"").to_string();
                 info(&(casted_echo_sentence + "\n"), &mut _settings);
             }
+
             ["dir"] => {
                 let formatted_message = match env::current_dir() {
                     Ok(path) => format!("{}\n", path.display()),
@@ -150,6 +191,7 @@ fn main() -> io::Result<()> {
                 };
                 info(&formatted_message, &mut _settings);
             }
+
             ["set", "model", model_type] => {
                 if model_type == &"path" {
                     line_number_to_modify = 0;
@@ -168,8 +210,9 @@ fn main() -> io::Result<()> {
                     let mut file = OpenOptions::new()
                         .write(true)
                         .truncate(true)
-                        .open("src/settings.ninfo")?;
+                        .open(&cloned_settings_path)?;
                     file.write_all(modified_contents.as_bytes())?;
+
                 } else if model_type == &"default" {
                     line_number_to_modify = 0;
                     let mut lines: Vec<&str> = contents.lines().collect();
@@ -183,13 +226,15 @@ fn main() -> io::Result<()> {
                     let mut file = OpenOptions::new()
                         .write(true)
                         .truncate(true)
-                        .open("src/settings.ninfo")?;
+                        .open(&cloned_settings_path)?;
                     file.write_all(modified_contents.as_bytes())?;
+
                 } else {
                     let error_text = format!("Model '{}' does not exist!\n", model_type);
                     error(&error_text, &mut _settings);
                 }
             }
+
             ["set", "aspect", aspect_type] => {
                 if aspect_type == &"normal" {
                     line_number_to_modify = 1;
@@ -204,9 +249,10 @@ fn main() -> io::Result<()> {
                     let mut file = OpenOptions::new()
                         .write(true)
                         .truncate(true)
-                        .open("src/settings.ninfo")?;
+                        .open(&cloned_settings_path)?;
                     file.write_all(modified_contents.as_bytes())?;
                     info("Aspect set to 'normal'\n", &mut _settings);
+
                 } else if aspect_type == &"abstract" {
                     line_number_to_modify = 1;
                     let mut lines: Vec<&str> = contents.lines().collect();
@@ -220,9 +266,10 @@ fn main() -> io::Result<()> {
                     let mut file = OpenOptions::new()
                         .write(true)
                         .truncate(true)
-                        .open("src/settings.ninfo")?;
+                        .open(&cloned_settings_path)?;
                     file.write_all(modified_contents.as_bytes())?;
                     info("Aspect set to 'abstract'\n", &mut _settings);
+                    
                 } else {
                     let error_text = format!("Aspect '{}' does not exist!\n", aspect_type);
                     error(&error_text, &mut _settings);
@@ -280,13 +327,14 @@ fn main() -> io::Result<()> {
                             Ok(created) => format_system_time(created),
                             Err(_) => "Created time not available".to_string(),
                         };
-                        let size_type;
+                        let mut size_type = "KB";
                         if size_kb > 999.99 {
                             size_type = "MB";
                             size_kb = size_kb / 1000.0;
                         }
-                        else {
-                            size_type = "KB";
+                        if size_kb > 999.99 {
+                            size_type = "GB";
+                            size_kb = size_kb / 1000.0;
                         }
                         println!(
                             "                            {:<dir_width$} | {:<size_width$} | {}",
@@ -306,13 +354,14 @@ fn main() -> io::Result<()> {
                             Ok(created) => format_system_time(created),
                             Err(_) => "Created time not available".to_string(),
                         };
-                        let size_type;
+                        let mut size_type = "KB";
                         if size_kb > 999.99 {
                             size_type = "MB";
                             size_kb = size_kb / 1000.0;
                         }
-                        else {
-                            size_type = "KB";
+                        if size_kb > 999.99 {
+                            size_type = "GB";
+                            size_kb = size_kb / 1000.0;
                         }
                         println!(
                             "                            {:<file_width$} | {:<size_width$} | {}",
@@ -325,6 +374,36 @@ fn main() -> io::Result<()> {
                     }
                 }
             }
+
+            ["hello"] => {
+                hello_nitro();
+                info("nitroTools is a command-line tool that makes navigating in your OS a lot easier!\n", _settings);
+                info("nitroTools is still in development with no current version avalabile for public use!\n", _settings);
+            }
+
+            ["cd", new_dir_path] => {
+                let new_dir = Path::new(new_dir_path);
+
+                if new_dir.exists() {
+                    env::set_current_dir(&new_dir)?;
+                    let text_string = format!("CWD has been changed to '{}'\n", new_dir.display());
+                    info(&text_string, _settings);
+                }
+
+            }
+
+            ["cls"] => {
+                let status = Command::new("cmd")
+                    .args(&["/C", "cls"])
+                    .status()
+                    .expect("Failed to execute command");
+
+                    if status.success() {
+                    } else {
+                        error("Could not clear the screen, please try again!", _settings);
+                    }
+            }
+
             [_command, ..] => {
                 formatted_message = format!("'{}' is not a command!\n", user_input);
                 error(&formatted_message, &mut _settings);
